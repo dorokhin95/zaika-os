@@ -59,6 +59,7 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         cp -f /src/ramdisk.img /mnt_target/zaika_os/ 2>/dev/null || true
         cp -rf /src/scripts /mnt_target/zaika_os/
         cp -rf /src/apps /mnt_target/zaika_os/
+        cp -rf /src/wifi /mnt_target/zaika_os/ 2>/dev/null || true
         cp -f /src/bootanimation.zip /mnt_target/zaika_os/ 2>/dev/null || true
         mkdir -p /mnt_target/zaika_os/data
         
@@ -254,12 +255,44 @@ if [ -f ./zaika_apps/SystemUI_zaika.apk ] && [ -f system/priv-app/SystemUI/Syste
 fi
 
 # ------------------------------------------
+# 5b. Enable Zaika Wi-Fi Support (RTL8188EU / Mercusys & WEXT)
+# ------------------------------------------
+modprobe r8188eu 2>/dev/null || true
+echo "2c4e 0102" > /sys/bus/usb/drivers/r8188eu/new_id 2>/dev/null || true
+
+WIFI_DIR=""
+[ -d /src/wifi ] && WIFI_DIR="/src/wifi"
+[ -z "$WIFI_DIR" ] && [ -d /zaika_os/wifi ] && WIFI_DIR="/zaika_os/wifi"
+[ -z "$WIFI_DIR" ] && [ -d ./wifi ] && WIFI_DIR="./wifi"
+
+if [ -n "$WIFI_DIR" ] && [ -f "$WIFI_DIR/wpa_shim" ]; then
+    mkdir -p system/wifi
+    mount --bind "$WIFI_DIR" system/wifi 2>/dev/null || true
+    if [ -f system/bin/wpa_supplicant ] && [ ! -f system/bin/wpa_supplicant.stock ]; then
+        cp -f system/bin/wpa_supplicant ./wpa_supplicant.stock
+        mount --bind ./wpa_supplicant.stock system/bin/wpa_supplicant.stock 2>/dev/null || true
+    fi
+    chmod 755 "$WIFI_DIR/wpa_shim"
+    mount --bind "$WIFI_DIR/wpa_shim" system/bin/wpa_supplicant 2>/dev/null || true
+fi
+
+# ------------------------------------------
 # 6. Create /zaika_setup.sh for background setup
 # ------------------------------------------
 cat << 'SETUP_EOF' > ./zaika_setup.sh
 #!/system/bin/sh
 # Headless diagnostics
 busybox telnetd -l /system/bin/sh -p 2323 >/dev/null 2>&1 || true
+
+# Setup /tmp symlink for musl wpa_cli
+mount -o remount,rw / 2>/dev/null || true
+mkdir -p /data/local/tmp
+chmod 777 /data/local/tmp
+ln -sf /data/local/tmp /tmp 2>/dev/null || true
+
+# Register Mercusys USB ID in case of late plug-in
+modprobe r8188eu 2>/dev/null || true
+echo "2c4e 0102" > /sys/bus/usb/drivers/r8188eu/new_id 2>/dev/null || true
 
 if [ -f /data/zaika_setup.done ]; then
     exit 0
@@ -439,5 +472,16 @@ PREF_EOF
         mkdir -p data/data/com.leanbitlab.ltvL/app_flutter
         cp -f /src/ltv_zaika.sqlite data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite
         chmod -R 777 data/data/com.leanbitlab.ltvL 2>/dev/null || true
+    fi
+
+    # Pre-populate wifi bundle in data/wpa_bundle
+    if [ ! -d data/wpa_bundle ]; then
+        mkdir -p data/wpa_bundle
+        if [ -d /src/wifi ]; then
+            cp -rf /src/wifi/* data/wpa_bundle/ 2>/dev/null || true
+        elif [ -d /zaika_os/wifi ]; then
+            cp -rf /zaika_os/wifi/* data/wpa_bundle/ 2>/dev/null || true
+        fi
+        chmod -R 755 data/wpa_bundle 2>/dev/null || true
     fi
 }
