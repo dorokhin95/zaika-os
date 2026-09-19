@@ -41,8 +41,8 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         [ ! -b "$PART1" ] && mknod /dev/block/sda1 b 8 1 2>/dev/null || true
         [ ! -b "$PART1" ] && [ -b /dev/block/sda1 ] && PART1="/dev/block/sda1"
         
-        echo "Форматирование $PART1 в ext4..."
-        mke2fs -F -t ext4 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mkfs.ext4 -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
+        echo "Форматирование $PART1 (ext3/ext4 compatible)..."
+        mke2fs -F -t ext3 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
         
         # 4. Монтирование и копирование системных файлов
         mkdir -p /mnt_target
