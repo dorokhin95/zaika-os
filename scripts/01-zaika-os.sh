@@ -4,7 +4,101 @@
 # Зайка ОС 1.0 (Media & Game Edition)
 # ==========================================
 
+# ------------------------------------------
+# 0. Автоматическая тихая установка на диск
+# ------------------------------------------
+if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && [ "$SRC" != "/zaika_os" ] && [ ! -f /mnt/zaika_os/system.sfs ]; then
+    echo "================================================="
+    echo "  ЗАЙКА ОС 1.0: АВТОМАТИЧЕСКАЯ УСТАНОВКА НА ДИСК"
+    echo "================================================="
+    
+    # Определение блочного устройства
+    TARGET_DISK=""
+    if [ -b /dev/block/sda ]; then
+        TARGET_DISK="/dev/block/sda"
+    elif [ -b /dev/sda ]; then
+        TARGET_DISK="/dev/sda"
+    fi
+
+    if [ -n "$TARGET_DISK" ]; then
+        echo "Целевой диск обнаружен: $TARGET_DISK"
+        
+        # 1. Отмонтирование любых активных разделов на целевом диске
+        umount ${TARGET_DISK}* 2>/dev/null || true
+        
+        # 2. Создание таблицы разделов MBR с одним разделом sda1 на весь диск
+        echo -e "o\nn\np\n1\n\n\nw\n" | fdisk $TARGET_DISK >/dev/null 2>&1
+        sleep 2
+        
+        # 3. Создание ноды sda1 и форматирование в ext4
+        PART1="${TARGET_DISK}1"
+        [ ! -b "$PART1" ] && mknod /dev/block/sda1 b 8 1 2>/dev/null || true
+        [ ! -b "$PART1" ] && [ -b /dev/block/sda1 ] && PART1="/dev/block/sda1"
+        
+        echo "Форматирование $PART1 в ext4 (Зайка ОС)..."
+        mke2fs -F -t ext4 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mkfs.ext4 -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
+        
+        # 4. Монтирование и копирование системных файлов
+        mkdir -p /mnt_target
+        mount -t ext4 $PART1 /mnt_target
+        
+        echo "Копирование системных файлов Зайка ОС..."
+        mkdir -p /mnt_target/zaika_os
+        cp -f /src/system.sfs /mnt_target/zaika_os/
+        cp -f /src/kernel /mnt_target/zaika_os/
+        cp -f /src/initrd.img /mnt_target/zaika_os/
+        cp -rf /src/scripts /mnt_target/zaika_os/
+        cp -rf /src/apps /mnt_target/zaika_os/
+        cp -f /src/bootanimation.zip /mnt_target/zaika_os/ 2>/dev/null || true
+        mkdir -p /mnt_target/zaika_os/data
+        
+        # 5. Установка загрузчика GRUB
+        echo "Установка загрузчика GRUB на жесткий диск..."
+        mkdir -p /mnt_target/boot/grub
+        if [ -d /src/boot/grub_legacy ]; then
+            cp -f /src/boot/grub_legacy/stage1 /mnt_target/boot/grub/ 2>/dev/null || true
+            cp -f /src/boot/grub_legacy/stage2 /mnt_target/boot/grub/ 2>/dev/null || true
+            cp -f /src/boot/grub_legacy/e2fs_stage1_5 /mnt_target/boot/grub/ 2>/dev/null || true
+        fi
+        
+        cat << 'GRUB_LST_EOF' > /mnt_target/boot/grub/menu.lst
+default 0
+timeout 1
+
+title Zaika OS 1.0 (Media & Game Edition)
+    root (hd0,0)
+    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=/zaika_os radeon.modeset=1 vga=current
+    initrd /zaika_os/initrd.img
+GRUB_LST_EOF
+
+        if [ -x /src/boot/grub_legacy/grub ]; then
+            echo "(hd0) $TARGET_DISK" > /tmp/device.map
+            /src/boot/grub_legacy/grub --device-map /tmp/device.map << 'GRUB_RUN_EOF' >/dev/null 2>&1
+setup (hd0) (hd0,0)
+quit
+GRUB_RUN_EOF
+        fi
+        
+        # Поддержка UEFI
+        if [ -d /src/efi ]; then
+            mkdir -p /mnt_target/EFI
+            cp -rf /src/efi/* /mnt_target/EFI/ 2>/dev/null || true
+        fi
+        
+        sync
+        umount /mnt_target
+        echo "================================================="
+        echo "  УСТАНОВКА ЗАВЕРШЕНА! ИЗВЛЕКИТЕ ФЛЕШКУ."
+        echo "  Перезагрузка через 3 секунды..."
+        echo "================================================="
+        sleep 3
+        reboot -f
+    fi
+fi
+
+# ------------------------------------------
 # 1. Properties in default.prop
+# ------------------------------------------
 cat << 'PROP_EOF' >> default.prop
 ro.build.display.id=Зайка ОС 1.0 (Media Edition)
 ro.product.model=Zaika Box E-450
@@ -25,7 +119,9 @@ persist.sys.hard_keyboard=0
 persist.sys.keyboard=1
 PROP_EOF
 
+# ------------------------------------------
 # 2. Patch system/build.prop via mount --bind
+# ------------------------------------------
 if [ -f system/build.prop ]; then
     cp -f system/build.prop ./build.prop.zaika
     sed -i 's/^ro.build.display.id=.*/ro.build.display.id=Зайка ОС 1.0 (Media Edition)/' ./build.prop.zaika
@@ -41,21 +137,48 @@ if [ -f system/build.prop ]; then
     mount --bind ./build.prop.zaika system/build.prop 2>/dev/null || true
 fi
 
+# ------------------------------------------
 # 3. Mount Zaika line-art bootanimation
+# ------------------------------------------
 if [ -f /src/bootanimation.zip ]; then
     cp -f /src/bootanimation.zip ./bootanimation.zaika
     chmod 644 ./bootanimation.zaika
     mount --bind ./bootanimation.zaika system/media/bootanimation.zip 2>/dev/null || true
 fi
 
-# 4. Copy apps to /zaika_apps so Android can access and install them
+# ------------------------------------------
+# 4. Copy apps to /zaika_apps
+# ------------------------------------------
 if [ -d /src/apps ]; then
     mkdir -p ./zaika_apps
     cp -f /src/apps/*.apk ./zaika_apps/ 2>/dev/null || true
     chmod 644 ./zaika_apps/*.apk 2>/dev/null || true
 fi
 
-# 5. Create /zaika_setup.sh for background initialization
+# ------------------------------------------
+# 5. Patch SystemUI with Bunny Start Button
+# ------------------------------------------
+if [ -f ./zaika_apps/SystemUI_zaika.apk ] && [ -f system/priv-app/SystemUI/SystemUI.apk ]; then
+    mount --bind ./zaika_apps/SystemUI_zaika.apk system/priv-app/SystemUI/SystemUI.apk 2>/dev/null || true
+fi
+
+# ------------------------------------------
+# 6. Dual-Interface Launcher Architecture
+# ------------------------------------------
+# LtvLauncher becomes the primary Home launcher (fullscreen, no DecoView frame)
+# Original Launcher3 (Desktop) is kept as secondary privileged app
+if [ -f ./zaika_apps/LtvLauncher.apk ]; then
+    if [ -f system/priv-app/gameCentre/gameCentre.apk ] && [ -f system/priv-app/Launcher3/Launcher3.apk ]; then
+        # Preserve original Launcher3 inside gameCentre slot
+        mount --bind system/priv-app/Launcher3/Launcher3.apk system/priv-app/gameCentre/gameCentre.apk 2>/dev/null || true
+    fi
+    # Mount LtvLauncher directly as primary Launcher3
+    mount --bind ./zaika_apps/LtvLauncher.apk system/priv-app/Launcher3/Launcher3.apk 2>/dev/null || true
+fi
+
+# ------------------------------------------
+# 7. Create /zaika_setup.sh for background setup
+# ------------------------------------------
 cat << 'SETUP_EOF' > ./zaika_setup.sh
 #!/system/bin/sh
 if [ -f /data/zaika_setup.done ] || [ -f /data/zaika_setup.running ]; then
@@ -65,8 +188,8 @@ touch /data/zaika_setup.running
 exec > /data/zaika_setup.log 2>&1
 echo "Zaika Setup started at $(date)"
 
-# Wait until settings provider is fully initialized and can read/write
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60; do
+# Wait until settings provider is available
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
     settings put secure primeos_activation_completed 1 >/dev/null 2>&1
     val=$(settings get secure primeos_activation_completed 2>/dev/null)
     if [ "$val" = "1" ]; then
@@ -76,8 +199,13 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27
     sleep 1
 done
 
-# Disable PrimeOS Activation & Setup Wizard completely
+# Set complete activation, provisioning, and disable lockscreen completely
 settings put secure primeos_activation_completed 1
+settings put secure primeos_activated 1
+settings put global primeos_activation_completed 1
+settings put global primeos_activated 1
+settings put system primeos_activation_completed 1
+settings put system primeos_activated 1
 settings put secure user_setup_complete 1
 settings put secure tv_user_setup_complete 1
 settings put global device_provisioned 1
@@ -85,8 +213,11 @@ settings put secure show_ime_with_hard_keyboard 1
 settings put system system_locales ru-RU
 settings put secure lockscreen.disabled 1
 
-# Wait until Package Manager (pm) is ready
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+# Disable FallbackHome so it never intercepts focus
+pm disable com.android.settings/.FallbackHome 2>/dev/null || true
+
+# Wait for Package Manager
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
     if pm path android >/dev/null 2>&1; then
         echo "Package Manager is UP on attempt $i"
         break
@@ -94,48 +225,31 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27
     sleep 1
 done
 
-# Disable primesetup Activity inside SystemUI
-pm disable com.android.systemui/com.android.systemui.primeos.primesetup.MainActivity 2>/dev/null || true
-
-# Disable standard desktop launcher3
-pm disable com.android.launcher3 2>/dev/null || true
-
-# Install all Zaika Apps
-for apk in /zaika_apps/LtvLauncher.apk /zaika_apps/SmartTube.apk /zaika_apps/HDrezka.apk /zaika_apps/AmneziaVPN.apk; do
-    if [ -f "$apk" ]; then
-        echo "Installing $apk..."
-        pm install -r -g "$apk" 2>/dev/null || true
-    fi
-done
-
-# Enable LtvLauncher
-pm enable com.leanbitlab.ltvL 2>/dev/null || true
-
-# Ensure all activation and user setup flags are set to 1
-settings put secure primeos_activation_completed 1
-settings put secure user_setup_complete 1
-settings put secure tv_user_setup_complete 1
-settings put global device_provisioned 1
-settings put secure lockscreen.disabled 1
-
-# Dismiss lockscreen
+# Dismiss keyguard immediately
 wm dismiss-keyguard 2>/dev/null || true
 input keyevent 82 2>/dev/null || true
 
-# Restart SystemUI cleanly to drop any cached wizard
-am force-stop com.android.systemui 2>/dev/null || true
-
-# Launch LtvLauncher directly on screen
-am start -n com.leanbitlab.ltvL/.MainActivity 2>/dev/null || true
+# Install media apps asynchronously in the background so boot is instant!
+(
+    for apk in /zaika_apps/SmartTube.apk /zaika_apps/HDrezka.apk /zaika_apps/AmneziaVPN.apk; do
+        if [ -f "$apk" ]; then
+            echo "Installing $apk in background..." >> /data/zaika_setup.log
+            pm install -r -g "$apk" >> /data/zaika_setup.log 2>&1
+        fi
+    done
+    echo "All background apps installed at $(date)" >> /data/zaika_setup.log
+) &
 
 rm -f /data/zaika_setup.running
 touch /data/zaika_setup.done
-echo "Zaika Setup finished successfully at $(date)"
+echo "Zaika Setup completed successfully at $(date)"
 SETUP_EOF
 
 chmod 755 ./zaika_setup.sh
 
-# 6. Inject service into init.android_x86.rc
+# ------------------------------------------
+# 8. Inject service into init.android_x86.rc
+# ------------------------------------------
 if [ -f init.android_x86.rc ]; then
     cat << 'RC_EOF' >> init.android_x86.rc
 
@@ -151,25 +265,26 @@ on property:init.svc.zygote=running
 RC_EOF
 fi
 
-# 7. Define post_detect to pre-populate /data
+# ------------------------------------------
+# 9. Pre-populate Settings database for /data
+# ------------------------------------------
 post_detect() {
-    # Pre-populate data/local/bootanimation.zip
+    mkdir -p data/local
     if [ -f /src/bootanimation.zip ]; then
-        mkdir -p data/local
         cp -f /src/bootanimation.zip data/local/bootanimation.zip
         chmod 644 data/local/bootanimation.zip
     fi
 
-    # Pre-populate Settings database for Russian locale, provisioned flag, and keyboard
     mkdir -p data/system/users/0
     cat << 'XML_EOF' > data/system/users/0/settings_secure.xml
 <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
 <settings version="134">
   <setting id="1" name="primeos_activation_completed" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="2" name="show_ime_with_hard_keyboard" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="3" name="user_setup_complete" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="4" name="tv_user_setup_complete" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="5" name="lockscreen.disabled" value="1" package="android" defaultValue="1" defaultSysSet="true" />
+  <setting id="2" name="primeos_activated" value="1" package="android" defaultValue="1" defaultSysSet="true" />
+  <setting id="3" name="show_ime_with_hard_keyboard" value="1" package="android" defaultValue="1" defaultSysSet="true" />
+  <setting id="4" name="user_setup_complete" value="1" package="android" defaultValue="1" defaultSysSet="true" />
+  <setting id="5" name="tv_user_setup_complete" value="1" package="android" defaultValue="1" defaultSysSet="true" />
+  <setting id="6" name="lockscreen.disabled" value="1" package="android" defaultValue="1" defaultSysSet="true" />
 </settings>
 XML_EOF
 
@@ -177,6 +292,8 @@ XML_EOF
 <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
 <settings version="134">
   <setting id="1" name="device_provisioned" value="1" package="android" defaultValue="1" defaultSysSet="true" />
+  <setting id="2" name="primeos_activation_completed" value="1" package="android" defaultValue="1" defaultSysSet="true" />
+  <setting id="3" name="primeos_activated" value="1" package="android" defaultValue="1" defaultSysSet="true" />
 </settings>
 GLOBAL_XML_EOF
 
