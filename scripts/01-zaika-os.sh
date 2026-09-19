@@ -12,7 +12,6 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
     echo "  ЗАЙКА ОС 1.0: АВТОМАТИЧЕСКАЯ УСТАНОВКА НА ДИСК"
     echo "================================================="
     
-    # Определение блочного устройства
     TARGET_DISK=""
     if [ -b /dev/block/sda ]; then
         TARGET_DISK="/dev/block/sda"
@@ -23,11 +22,18 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
     if [ -n "$TARGET_DISK" ]; then
         echo "Целевой диск обнаружен: $TARGET_DISK"
         
-        # 1. Отмонтирование любых активных разделов на целевом диске
+        # Развертывание инструментов установщика если доступны
+        mkdir -p /lib
+        [ -f /bin/ld-linux.so.2 ] && ln -sf /bin/ld-linux.so.2 /lib/ld-linux.so.2
+        if [ -f /src/install.img ] && [ ! -x /sbin/grub ]; then
+            zcat /src/install.img 2>/dev/null | ( cd /; cpio -iud >/dev/null 2>&1 )
+        fi
+        
+        # 1. Отмонтирование разделов целевого диска
         umount ${TARGET_DISK}* 2>/dev/null || true
         
-        # 2. Создание таблицы разделов MBR с одним разделом sda1 на весь диск
-        echo -e "o\nn\np\n1\n\n\nw\n" | fdisk $TARGET_DISK >/dev/null 2>&1
+        # 2. Создание таблицы разделов MBR с активным (bootable) разделом sda1
+        echo -e "o\nn\np\n1\n\n\na\n1\nw\n" | fdisk $TARGET_DISK >/dev/null 2>&1
         sleep 2
         
         # 3. Создание ноды sda1 и форматирование в ext4
@@ -35,14 +41,14 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         [ ! -b "$PART1" ] && mknod /dev/block/sda1 b 8 1 2>/dev/null || true
         [ ! -b "$PART1" ] && [ -b /dev/block/sda1 ] && PART1="/dev/block/sda1"
         
-        echo "Форматирование $PART1 в ext4 (Зайка ОС)..."
+        echo "Форматирование $PART1 в ext4..."
         mke2fs -F -t ext4 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mkfs.ext4 -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
         
         # 4. Монтирование и копирование системных файлов
         mkdir -p /mnt_target
         mount -t ext4 $PART1 /mnt_target
         
-        echo "Копирование системных файлов Зайка ОС..."
+        echo "Копирование файлов Зайка ОС..."
         mkdir -p /mnt_target/zaika_os
         cp -f /src/system.sfs /mnt_target/zaika_os/
         cp -f /src/kernel /mnt_target/zaika_os/
@@ -52,31 +58,42 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         cp -f /src/bootanimation.zip /mnt_target/zaika_os/ 2>/dev/null || true
         mkdir -p /mnt_target/zaika_os/data
         
-        # 5. Установка загрузчика GRUB
-        echo "Установка загрузчика GRUB на жесткий диск..."
-        mkdir -p /mnt_target/boot/grub
-        if [ -d /src/boot/grub_legacy ]; then
-            cp -f /src/boot/grub_legacy/stage1 /mnt_target/boot/grub/ 2>/dev/null || true
-            cp -f /src/boot/grub_legacy/stage2 /mnt_target/boot/grub/ 2>/dev/null || true
-            cp -f /src/boot/grub_legacy/e2fs_stage1_5 /mnt_target/boot/grub/ 2>/dev/null || true
-        fi
+        # 5. Установка загрузчика GRUB в MBR
+        echo "Установка загрузчика GRUB..."
+        mkdir -p /mnt_target/boot/grub /mnt_target/grub
+        
+        # Копирование стадий GRUB
+        for gdir in /src/boot/grub_legacy /grub; do
+            if [ -d "$gdir" ]; then
+                cp -f $gdir/stage1 /mnt_target/boot/grub/ 2>/dev/null || true
+                cp -f $gdir/stage2 /mnt_target/boot/grub/ 2>/dev/null || true
+                cp -f $gdir/e2fs_stage1_5 /mnt_target/boot/grub/ 2>/dev/null || true
+                cp -f $gdir/stage1 /mnt_target/grub/ 2>/dev/null || true
+                cp -f $gdir/stage2 /mnt_target/grub/ 2>/dev/null || true
+                cp -f $gdir/e2fs_stage1_5 /mnt_target/grub/ 2>/dev/null || true
+            fi
+        done
         
         cat << 'GRUB_LST_EOF' > /mnt_target/boot/grub/menu.lst
 default 0
 timeout 1
 
-title Zaika OS 1.0 (Media & Game Edition)
+title Zaika OS 1.0
     root (hd0,0)
-    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=/zaika_os radeon.modeset=1 vga=current
+    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 quiet
     initrd /zaika_os/initrd.img
 GRUB_LST_EOF
+        cp -f /mnt_target/boot/grub/menu.lst /mnt_target/grub/menu.lst
 
-        if [ -x /src/boot/grub_legacy/grub ]; then
-            echo "(hd0) $TARGET_DISK" > /tmp/device.map
-            /src/boot/grub_legacy/grub --device-map /tmp/device.map << 'GRUB_RUN_EOF' >/dev/null 2>&1
-setup (hd0) (hd0,0)
-quit
-GRUB_RUN_EOF
+        # Вызов утилиты grub для записи загрузчика в MBR
+        echo "(hd0) $TARGET_DISK" > /tmp/device.map
+        GRUB_BIN=""
+        [ -x /sbin/grub ] && GRUB_BIN="/sbin/grub"
+        [ -z "$GRUB_BIN" ] && [ -x /bin/grub ] && GRUB_BIN="/bin/grub"
+        [ -z "$GRUB_BIN" ] && [ -x /src/boot/grub_legacy/grub ] && GRUB_BIN="/src/boot/grub_legacy/grub"
+        
+        if [ -n "$GRUB_BIN" ]; then
+            echo -e "root (hd0,0)\nsetup (hd0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map >/dev/null 2>&1
         fi
         
         # Поддержка UEFI
@@ -165,8 +182,6 @@ fi
 # ------------------------------------------
 # 6. Dual-Interface Launcher Architecture
 # ------------------------------------------
-# LtvLauncher becomes the primary Home launcher (fullscreen, no DecoView frame)
-# Original Launcher3 (Desktop) is kept as secondary privileged app
 if [ -f ./zaika_apps/LtvLauncher.apk ]; then
     if [ -f system/priv-app/gameCentre/gameCentre.apk ] && [ -f system/priv-app/Launcher3/Launcher3.apk ]; then
         # Preserve original Launcher3 inside gameCentre slot
