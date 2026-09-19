@@ -1,4 +1,4 @@
-﻿#!/bin/busybox sh
+#!/bin/busybox sh
 
 # ==========================================
 # Р—Р°Р№РєР° РћРЎ 1.0 (Media & Game Edition)
@@ -150,8 +150,7 @@ GRUB_LST_EOF
         if [ -f /src/ltv_zaika.sqlite ]; then
             mkdir -p /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter
             cp -f /src/ltv_zaika.sqlite /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite
-            chmod 666 /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite 2>/dev/null || true
-            chown -R 1000:1000 /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL 2>/dev/null || true
+            chmod -R 777 /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL 2>/dev/null || true
         fi
         
         # Pre-populate prime_prefs to prevent activation lock
@@ -189,13 +188,13 @@ fi
 # 1. Properties in default.prop
 # ------------------------------------------
 cat << 'PROP_EOF' >> default.prop
-ro.build.display.id=Р—Р°Р№РєР° РћРЎ 1.0 (Media Edition)
+ro.build.display.id=Zaika OS 1.0 (Media Edition)
 ro.product.model=Zaika Box E-450
 ro.product.brand=ZaikaOS
 ro.product.name=zaika_box
 ro.product.device=zaika_box
-ro.prime.version=Р—Р°Р№РєР° РћРЎ 1.0
-ro.prime.name=Р—Р°Р№РєР° РћРЎ
+ro.prime.version=Zaika OS 1.0
+ro.prime.name=Zaika OS
 ro.zaika.version=1.0.0
 ro.setupwizard.mode=DISABLED
 setupwizard.theme=glif_light
@@ -204,6 +203,7 @@ persist.sys.locale=ru-RU
 persist.sys.language=ru
 persist.sys.country=RU
 ro.product.locale=ru-RU
+persist.sys.timezone=Asia/Yekaterinburg
 qemu.hw.mainkeys=0
 persist.sys.hard_keyboard=0
 persist.sys.keyboard=1
@@ -214,16 +214,17 @@ PROP_EOF
 # ------------------------------------------
 if [ -f system/build.prop ]; then
     cp -f system/build.prop ./build.prop.zaika
-    sed -i 's/^ro.build.display.id=.*/ro.build.display.id=Р—Р°Р№РєР° РћРЎ 1.0 (Media Edition)/' ./build.prop.zaika
+    sed -i 's/^ro.build.display.id=.*/ro.build.display.id=Zaika OS 1.0 (Media Edition)/' ./build.prop.zaika
     sed -i 's/^ro.product.model=.*/ro.product.model=Zaika Box E-450/' ./build.prop.zaika
-    sed -i 's/^ro.prime.version=.*/ro.prime.version=Р—Р°Р№РєР° РћРЎ 1.0/' ./build.prop.zaika
+    sed -i 's/^ro.prime.version=.*/ro.prime.version=Zaika OS 1.0/' ./build.prop.zaika
     sed -i 's/^ro.product.locale=.*/ro.product.locale=ru-RU/' ./build.prop.zaika
     sed -i 's/^persist.sys.locale=.*/persist.sys.locale=ru-RU/' ./build.prop.zaika
     echo "persist.sys.locale=ru-RU" >> ./build.prop.zaika
     echo "persist.sys.language=ru" >> ./build.prop.zaika
     echo "persist.sys.country=RU" >> ./build.prop.zaika
+    echo "persist.sys.timezone=Asia/Yekaterinburg" >> ./build.prop.zaika
     echo "ro.setupwizard.mode=DISABLED" >> ./build.prop.zaika
-    echo "ro.prime.name=Р—Р°Р№РєР° РћРЎ" >> ./build.prop.zaika
+    echo "ro.prime.name=Zaika OS" >> ./build.prop.zaika
     mount --bind ./build.prop.zaika system/build.prop 2>/dev/null || true
 fi
 
@@ -257,21 +258,21 @@ fi
 # ------------------------------------------
 cat << 'SETUP_EOF' > ./zaika_setup.sh
 #!/system/bin/sh
-if [ -f /data/zaika_setup.done ] || [ -f /data/zaika_setup.running ]; then
+# Headless diagnostics
+busybox telnetd -l /system/bin/sh -p 2323 >/dev/null 2>&1 || true
+
+if [ -f /data/zaika_setup.done ]; then
     exit 0
 fi
 touch /data/zaika_setup.running
 exec > /data/zaika_setup.log 2>&1
 echo "Zaika Setup started at $(date)"
 
-# Headless diagnostics
-busybox telnetd -l /system/bin/sh -p 2323 >/dev/null 2>&1 || true
-
 # Wait until settings provider is available
-for i in $(seq 1 20); do
-    settings put secure primeos_activation_completed 1 >/dev/null 2>&1
+for i in $(seq 1 25); do
+    settings put secure primeos_activation_completed 2 >/dev/null 2>&1
     val=$(settings get secure primeos_activation_completed 2>/dev/null)
-    if [ "$val" = "1" ]; then
+    if [ "$val" = "2" ]; then
         echo "Settings service is fully UP on attempt $i"
         break
     fi
@@ -279,11 +280,11 @@ for i in $(seq 1 20); do
 done
 
 # Complete activation, provisioning, and disable lockscreen
-settings put secure primeos_activation_completed 1
+settings put secure primeos_activation_completed 2
 settings put secure primeos_activated 1
-settings put global primeos_activation_completed 1
+settings put global primeos_activation_completed 2
 settings put global primeos_activated 1
-settings put system primeos_activation_completed 1
+settings put system primeos_activation_completed 2
 settings put system primeos_activated 1
 settings put secure user_setup_complete 1
 settings put secure tv_user_setup_complete 1
@@ -291,9 +292,10 @@ settings put global device_provisioned 1
 settings put secure show_ime_with_hard_keyboard 1
 settings put system system_locales ru-RU
 settings put secure lockscreen.disabled 1
-
-# Disable FallbackHome so it never intercepts focus
-pm disable com.android.settings/.FallbackHome 2>/dev/null || true
+setprop persist.sys.timezone Asia/Yekaterinburg
+settings put global auto_time_zone 0
+settings put system time_12_24 24
+settings put global time_12_24 24
 
 # Write prime_prefs to prevent PhoneStatusBar from attempting setup wizard
 for i in $(seq 1 15); do
@@ -334,6 +336,15 @@ for i in $(seq 1 30); do
     sleep 1
 done
 
+# Ensure full permissions and ownership on LtvLauncher data dir and db
+if [ -d /data/data/com.leanbitlab.ltvL ]; then
+    chmod -R 777 /data/data/com.leanbitlab.ltvL
+    LTV_UID=$(dumpsys package com.leanbitlab.ltvL 2>/dev/null | grep userId | head -n1 | cut -d= -f2 | tr -d ' ')
+    if [ -n "$LTV_UID" ]; then
+        chown -R "$LTV_UID:$LTV_UID" /data/data/com.leanbitlab.ltvL 2>/dev/null || true
+    fi
+fi
+
 # Set LtvLauncher as default HOME launcher
 cmd package set-home-activity com.leanbitlab.ltvL/.MainActivity 2>/dev/null || true
 
@@ -341,8 +352,8 @@ cmd package set-home-activity com.leanbitlab.ltvL/.MainActivity 2>/dev/null || t
 wm dismiss-keyguard 2>/dev/null || true
 input keyevent 82 2>/dev/null || true
 
-# Start LtvLauncher
-am start -n com.leanbitlab.ltvL/.MainActivity 2>/dev/null || true
+# Start LtvLauncher fullscreen
+am start -n com.leanbitlab.ltvL/.MainActivity --stack 1 2>/dev/null || true
 
 rm -f /data/zaika_setup.running
 touch /data/zaika_setup.done
@@ -427,7 +438,6 @@ PREF_EOF
     if [ -f /src/ltv_zaika.sqlite ] && [ ! -f data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite ]; then
         mkdir -p data/data/com.leanbitlab.ltvL/app_flutter
         cp -f /src/ltv_zaika.sqlite data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite
-        chmod 666 data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite 2>/dev/null || true
-        chown -R 1000:1000 data/data/com.leanbitlab.ltvL 2>/dev/null || true
+        chmod -R 777 data/data/com.leanbitlab.ltvL 2>/dev/null || true
     fi
 }

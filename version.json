@@ -1,17 +1,17 @@
 {
-  "version": "1.0.1",
-  "version_code": 101,
+  "version": "1.0.2",
+  "version_code": 102,
   "release_date": "2026-09-19",
-  "name": "Зайка ОС 1.0.1 (Net-top Edition)",
-  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.1/ZaikaOS-1.0-x86_64.iso",
-  "sha256": "77904E59BA9E7DE2D86F41654B68E5E0C771AD54F1363116BA0D422D929ACFDF",
-  "size_bytes": 1280016384,
+  "name": "Зайка ОС 1.0.2 (Net-top Edition)",
+  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.2/ZaikaOS-1.0-x86_64.iso",
+  "sha256": "094A8B231027B4AB7C6F40B358A953188C9783DDECCC74BC84A28F438887D0C5",
+  "size_bytes": 1280024576,
   "changelog": [
+    "Исправлено зависание на заставке загрузки с зайчиком (сохранён FallbackHome)",
+    "Исправлена работа кнопки Пуск (заяц): открытие меню со всеми приложениями",
+    "Исправлены права доступа к базе данных ТВ-лаунчера (LtvLauncher загружается мгновенно)",
+    "Регион Россия и часовой пояс Екатеринбург (Asia/Yekaterinburg, UTC+5) установлены по умолчанию",
     "Поддержка неттопа AMD E-450 / Radeon HD 6320 (TeraScale 2)",
-    "Исправлена запись GRUB MBR без удаления stage1",
-    "Устранена ошибка Error 23: Error while parsing number в TrustedGRUB",
-    "Предустановка всех 4 приложений (LtvLauncher, SmartTube, HDrezka, AmneziaVPN x86)",
-    "Преднастроенная база данных ТВ-лаунчера с 7 категориями",
-    "Английский текстовый интерфейс автоустановщика без артефактов кодировки"
+    "Предустановка всех 4 приложений (LtvLauncher, SmartTube, HDrezka, AmneziaVPN x86)"
   ]
 }
