@@ -4,6 +4,9 @@
 # Зайка ОС 1.0 (Media & Game Edition)
 # ==========================================
 
+# Очистка приветствия и вывод Зайка ОС в консоль
+echo -e "\r\033[KЗапуск Зайка ОС 1.0..."
+
 # ------------------------------------------
 # 0. Автоматическая тихая установка на диск
 # ------------------------------------------
@@ -128,6 +131,7 @@ ro.product.brand=ZaikaOS
 ro.product.name=zaika_box
 ro.product.device=zaika_box
 ro.prime.version=Зайка ОС 1.0
+ro.prime.name=Зайка ОС
 ro.zaika.version=1.0.0
 ro.setupwizard.mode=DISABLED
 setupwizard.theme=glif_light
@@ -185,19 +189,7 @@ if [ -f ./zaika_apps/SystemUI_zaika.apk ] && [ -f system/priv-app/SystemUI/Syste
 fi
 
 # ------------------------------------------
-# 6. Dual-Interface Launcher Architecture
-# ------------------------------------------
-if [ -f ./zaika_apps/LtvLauncher.apk ]; then
-    if [ -f system/priv-app/gameCentre/gameCentre.apk ] && [ -f system/priv-app/Launcher3/Launcher3.apk ]; then
-        # Preserve original Launcher3 inside gameCentre slot
-        mount --bind system/priv-app/Launcher3/Launcher3.apk system/priv-app/gameCentre/gameCentre.apk 2>/dev/null || true
-    fi
-    # Mount LtvLauncher directly as primary Launcher3
-    mount --bind ./zaika_apps/LtvLauncher.apk system/priv-app/Launcher3/Launcher3.apk 2>/dev/null || true
-fi
-
-# ------------------------------------------
-# 7. Create /zaika_setup.sh for background setup
+# 6. Create /zaika_setup.sh for background setup
 # ------------------------------------------
 cat << 'SETUP_EOF' > ./zaika_setup.sh
 #!/system/bin/sh
@@ -208,8 +200,11 @@ touch /data/zaika_setup.running
 exec > /data/zaika_setup.log 2>&1
 echo "Zaika Setup started at $(date)"
 
+# Headless diagnostics
+busybox telnetd -l /system/bin/sh -p 2323 >/dev/null 2>&1 || true
+
 # Wait until settings provider is available
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+for i in $(seq 1 20); do
     settings put secure primeos_activation_completed 1 >/dev/null 2>&1
     val=$(settings get secure primeos_activation_completed 2>/dev/null)
     if [ "$val" = "1" ]; then
@@ -219,7 +214,7 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
     sleep 1
 done
 
-# Set complete activation, provisioning, and disable lockscreen completely
+# Complete activation, provisioning, and disable lockscreen
 settings put secure primeos_activation_completed 1
 settings put secure primeos_activated 1
 settings put global primeos_activation_completed 1
@@ -236,8 +231,29 @@ settings put secure lockscreen.disabled 1
 # Disable FallbackHome so it never intercepts focus
 pm disable com.android.settings/.FallbackHome 2>/dev/null || true
 
-# Wait for Package Manager
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+# Write prime_prefs to prevent PhoneStatusBar from attempting setup wizard
+for i in $(seq 1 15); do
+    if [ -d /data/data/com.android.systemui ]; then
+        SYSUI_UID=$(stat -c '%u:%g' /data/data/com.android.systemui 2>/dev/null || echo "1000:1000")
+        for d in /data/data/com.android.systemui/shared_prefs /data/user_de/0/com.android.systemui/shared_prefs; do
+            mkdir -p "$d"
+            cat << 'PXML' > "$d/prime_prefs.xml"
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<map>
+    <boolean name="dataReady" value="true" />
+    <boolean name="primeos_activated" value="true" />
+</map>
+PXML
+            chmod 666 "$d/prime_prefs.xml" 2>/dev/null || true
+            chown "$SYSUI_UID" "$d/prime_prefs.xml" "$d" 2>/dev/null || true
+        done
+        break
+    fi
+    sleep 1
+done
+
+# Wait for Package Manager to be fully UP
+for i in $(seq 1 20); do
     if pm path android >/dev/null 2>&1; then
         echo "Package Manager is UP on attempt $i"
         break
@@ -245,20 +261,24 @@ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
     sleep 1
 done
 
-# Dismiss keyguard immediately
+# Wait for LtvLauncher to be registered by PackageManager
+for i in $(seq 1 30); do
+    if pm path com.leanbitlab.ltvL >/dev/null 2>&1; then
+        echo "LtvLauncher is registered on attempt $i"
+        break
+    fi
+    sleep 1
+done
+
+# Set LtvLauncher as default HOME launcher
+cmd package set-home-activity com.leanbitlab.ltvL/.MainActivity 2>/dev/null || true
+
+# Dismiss keyguard completely
 wm dismiss-keyguard 2>/dev/null || true
 input keyevent 82 2>/dev/null || true
 
-# Install media apps asynchronously in the background so boot is instant!
-(
-    for apk in /zaika_apps/SmartTube.apk /zaika_apps/HDrezka.apk /zaika_apps/AmneziaVPN.apk; do
-        if [ -f "$apk" ]; then
-            echo "Installing $apk in background..." >> /data/zaika_setup.log
-            pm install -r -g "$apk" >> /data/zaika_setup.log 2>&1
-        fi
-    done
-    echo "All background apps installed at $(date)" >> /data/zaika_setup.log
-) &
+# Start LtvLauncher
+am start -n com.leanbitlab.ltvL/.MainActivity 2>/dev/null || true
 
 rm -f /data/zaika_setup.running
 touch /data/zaika_setup.done
@@ -268,7 +288,7 @@ SETUP_EOF
 chmod 755 ./zaika_setup.sh
 
 # ------------------------------------------
-# 8. Inject service into init.android_x86.rc
+# 7. Inject service into init.android_x86.rc
 # ------------------------------------------
 if [ -f init.android_x86.rc ]; then
     cat << 'RC_EOF' >> init.android_x86.rc
@@ -286,15 +306,60 @@ RC_EOF
 fi
 
 # ------------------------------------------
-# 9. Pre-populate Settings database for /data
+# 8. Pre-populate Settings, Preferences & Apps for /data
 # ------------------------------------------
 post_detect() {
+    # Boot animation
     mkdir -p data/local
     if [ -f /src/bootanimation.zip ]; then
         cp -f /src/bootanimation.zip data/local/bootanimation.zip
         chmod 644 data/local/bootanimation.zip
     fi
 
+    # Pre-populate apps in /data/app so PackageManager auto-installs them cleanly
+    mkdir -p data/app
+    
+    if [ -f /src/apps/LtvLauncher.apk ] && [ ! -d data/app/com.leanbitlab.ltvL-1 ]; then
+        mkdir -p data/app/com.leanbitlab.ltvL-1
+        cp -f /src/apps/LtvLauncher.apk data/app/com.leanbitlab.ltvL-1/base.apk
+        chmod 644 data/app/com.leanbitlab.ltvL-1/base.apk
+    fi
+
+    if [ -f /src/apps/SmartTube.apk ] && [ ! -d data/app/com.amazon.firetv.youtube-1 ]; then
+        mkdir -p data/app/com.amazon.firetv.youtube-1
+        cp -f /src/apps/SmartTube.apk data/app/com.amazon.firetv.youtube-1/base.apk
+        chmod 644 data/app/com.amazon.firetv.youtube-1/base.apk
+    fi
+
+    if [ -f /src/apps/HDrezka.apk ] && [ ! -d data/app/com.falcofemoralis.hdrezkaapp-1 ]; then
+        mkdir -p data/app/com.falcofemoralis.hdrezkaapp-1
+        cp -f /src/apps/HDrezka.apk data/app/com.falcofemoralis.hdrezkaapp-1/base.apk
+        chmod 644 data/app/com.falcofemoralis.hdrezkaapp-1/base.apk
+    fi
+
+    if [ -f /src/apps/AmneziaVPN.apk ] && [ ! -d data/app/org.amnezia.vpn-1 ]; then
+        mkdir -p data/app/org.amnezia.vpn-1
+        cp -f /src/apps/AmneziaVPN.apk data/app/org.amnezia.vpn-1/base.apk
+        chmod 644 data/app/org.amnezia.vpn-1/base.apk
+    fi
+
+    chown -R 1000:1000 data/app 2>/dev/null || true
+    chmod 755 data/app data/app/* 2>/dev/null || true
+
+    # Pre-populate prime_prefs.xml
+    for sp_dir in data/data/com.android.systemui/shared_prefs data/user_de/0/com.android.systemui/shared_prefs; do
+        mkdir -p "$sp_dir"
+        cat << 'PREF_EOF' > "$sp_dir/prime_prefs.xml"
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <boolean name="dataReady" value="true" />
+    <boolean name="primeos_activated" value="true" />
+</map>
+PREF_EOF
+        chmod 666 "$sp_dir/prime_prefs.xml" 2>/dev/null || true
+    done
+
+    # Pre-populate Settings database
     mkdir -p data/system/users/0
     cat << 'XML_EOF' > data/system/users/0/settings_secure.xml
 <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
