@@ -1,18 +1,18 @@
-#!/bin/busybox sh
+﻿#!/bin/busybox sh
 
 # ==========================================
-# Зайка ОС 1.0 (Media & Game Edition)
+# Р—Р°Р№РєР° РћРЎ 1.0 (Media & Game Edition)
 # ==========================================
 
-# Очистка приветствия и вывод Зайка ОС в консоль
-echo -e "\r\033[KЗапуск Зайка ОС 1.0..."
+# РћС‡РёСЃС‚РєР° РїСЂРёРІРµС‚СЃС‚РІРёСЏ Рё РІС‹РІРѕРґ Р—Р°Р№РєР° РћРЎ РІ РєРѕРЅСЃРѕР»СЊ
+echo -e "\r\033[KР—Р°РїСѓСЃРє Р—Р°Р№РєР° РћРЎ 1.0..."
 
 # ------------------------------------------
-# 0. Автоматическая тихая установка на диск
+# 0. РђРІС‚РѕРјР°С‚РёС‡РµСЃРєР°СЏ С‚РёС…Р°СЏ СѓСЃС‚Р°РЅРѕРІРєР° РЅР° РґРёСЃРє
 # ------------------------------------------
 if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && [ "$SRC" != "/zaika_os" ] && [ "$SRC" != "zaika_os" ] && [ ! -f /mnt/zaika_os/system.sfs ]; then
     echo "================================================="
-    echo "  ЗАЙКА ОС 1.0: АВТОМАТИЧЕСКАЯ УСТАНОВКА НА ДИСК"
+    echo "  Р—РђР™РљРђ РћРЎ 1.0: РђР’РўРћРњРђРўРР§Р•РЎРљРђРЇ РЈРЎРўРђРќРћР’РљРђ РќРђ Р”РРЎРљ"
     echo "================================================="
     
     TARGET_DISK=""
@@ -23,35 +23,35 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
     fi
 
     if [ -n "$TARGET_DISK" ]; then
-        echo "Целевой диск обнаружен: $TARGET_DISK"
+        echo "Р¦РµР»РµРІРѕР№ РґРёСЃРє РѕР±РЅР°СЂСѓР¶РµРЅ: $TARGET_DISK"
         
-        # Развертывание инструментов установщика если доступны
+        # Р Р°Р·РІРµСЂС‚С‹РІР°РЅРёРµ РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ СѓСЃС‚Р°РЅРѕРІС‰РёРєР° РµСЃР»Рё РґРѕСЃС‚СѓРїРЅС‹
         mkdir -p /lib
         [ -f /bin/ld-linux.so.2 ] && ln -sf /bin/ld-linux.so.2 /lib/ld-linux.so.2
         if [ -f /src/install.img ] && [ ! -x /sbin/grub ]; then
             zcat /src/install.img 2>/dev/null | ( cd /; cpio -iud >/dev/null 2>&1 )
         fi
         
-        # 1. Отмонтирование разделов целевого диска
+        # 1. РћС‚РјРѕРЅС‚РёСЂРѕРІР°РЅРёРµ СЂР°Р·РґРµР»РѕРІ С†РµР»РµРІРѕРіРѕ РґРёСЃРєР°
         umount ${TARGET_DISK}* 2>/dev/null || true
         
-        # 2. Создание таблицы разделов MBR с активным (bootable) разделом sda1
+        # 2. РЎРѕР·РґР°РЅРёРµ С‚Р°Р±Р»РёС†С‹ СЂР°Р·РґРµР»РѕРІ MBR СЃ Р°РєС‚РёРІРЅС‹Рј (bootable) СЂР°Р·РґРµР»РѕРј sda1
         echo -e "o\nn\np\n1\n\n\na\n1\nw\n" | fdisk $TARGET_DISK >/dev/null 2>&1
         sleep 2
         
-        # 3. Создание ноды sda1 и форматирование в ext3 с 128-байтными inode
+        # 3. РЎРѕР·РґР°РЅРёРµ РЅРѕРґС‹ sda1 Рё С„РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµ РІ ext3 СЃ 128-Р±Р°Р№С‚РЅС‹РјРё inode
         PART1="${TARGET_DISK}1"
         [ ! -b "$PART1" ] && mknod /dev/block/sda1 b 8 1 2>/dev/null || true
         [ ! -b "$PART1" ] && [ -b /dev/block/sda1 ] && PART1="/dev/block/sda1"
         
-        echo "Форматирование $PART1 (ext3, inode 128 для GRUB)..."
+        echo "Р¤РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµ $PART1 (ext3, inode 128 РґР»СЏ GRUB)..."
         mke2fs -F -t ext3 -I 128 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -I 128 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
         
-        # 4. Монтирование и копирование системных файлов
+        # 4. РњРѕРЅС‚РёСЂРѕРІР°РЅРёРµ Рё РєРѕРїРёСЂРѕРІР°РЅРёРµ СЃРёСЃС‚РµРјРЅС‹С… С„Р°Р№Р»РѕРІ
         mkdir -p /mnt_target
         mount -t ext3 $PART1 /mnt_target 2>/dev/null || mount -t ext4 $PART1 /mnt_target 2>/dev/null || mount $PART1 /mnt_target
         
-        echo "Копирование файлов Зайка ОС..."
+        echo "РљРѕРїРёСЂРѕРІР°РЅРёРµ С„Р°Р№Р»РѕРІ Р—Р°Р№РєР° РћРЎ..."
         mkdir -p /mnt_target/zaika_os
         cp -f /src/system.sfs /mnt_target/zaika_os/
         cp -f /src/kernel /mnt_target/zaika_os/
@@ -62,49 +62,80 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         cp -f /src/bootanimation.zip /mnt_target/zaika_os/ 2>/dev/null || true
         mkdir -p /mnt_target/zaika_os/data
         
-        # 5. Установка загрузчика GRUB в MBR
-        echo "Установка загрузчика GRUB..."
+                # 5. Установка загрузчика GRUB в MBR
+        echo "Установка загрузчика GRUB в MBR..."
         mkdir -p /mnt_target/boot/grub /mnt_target/grub
         
-        # Копирование стадий GRUB
-        for gdir in /src/boot/grub_legacy /grub; do
+        # Копирование всех стадий GRUB (stage1, stage2, e2fs_stage1_5)
+        for gdir in /src/boot/grub_legacy /src/boot/GRUB_LEG /grub /src/boot/grub; do
             if [ -d "$gdir" ]; then
-                cp -f $gdir/stage1 /mnt_target/boot/grub/ 2>/dev/null || true
-                cp -f $gdir/stage2 /mnt_target/boot/grub/ 2>/dev/null || true
-                cp -f $gdir/e2fs_stage1_5 /mnt_target/boot/grub/ 2>/dev/null || true
-                cp -f $gdir/stage1 /mnt_target/grub/ 2>/dev/null || true
-                cp -f $gdir/stage2 /mnt_target/grub/ 2>/dev/null || true
-                cp -f $gdir/e2fs_stage1_5 /mnt_target/grub/ 2>/dev/null || true
+                cp -f $gdir/* /mnt_target/boot/grub/ 2>/dev/null || true
+                cp -f $gdir/* /mnt_target/grub/ 2>/dev/null || true
             fi
         done
+        if [ -f /grub/stage1 ]; then
+            cp -f /grub/* /mnt_target/boot/grub/ 2>/dev/null || true
+            cp -f /grub/* /mnt_target/grub/ 2>/dev/null || true
+        fi
         
+        # Создание menu.lst
         cat << 'GRUB_LST_EOF' > /mnt_target/boot/grub/menu.lst
 default 0
-timeout 1
+timeout 3
 
 title Zaika OS 1.0
     root (hd0,0)
-    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 vga=current AUTO_LOAD=old_mod quiet
+    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 vga=current AUTO_LOAD=old_mod
+    initrd /zaika_os/initrd.img
+
+title Zaika OS 1.0 (Debug mode)
+    root (hd0,0)
+    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 vga=current AUTO_LOAD=old_mod DEBUG=2
     initrd /zaika_os/initrd.img
 GRUB_LST_EOF
         cp -f /mnt_target/boot/grub/menu.lst /mnt_target/grub/menu.lst
 
-        # Удаление stage1 из каталога grub (оставляем stage2 и e2fs_stage1_5)
-        rm -f /mnt_target/boot/grub/stage1 /mnt_target/grub/stage1
+        # ВАЖНО: stage1 НЕ УДАЛЯЕТСЯ! Он обязателен для записи MBR!
 
-        # Вызов утилиты grub для записи загрузчика в MBR
+        # Формирование device.map для целевого диска
         echo "(hd0) $TARGET_DISK" > /tmp/device.map
+        cp -f /tmp/device.map /mnt_target/boot/grub/device.map
+        cp -f /tmp/device.map /mnt_target/grub/device.map
+
         GRUB_BIN=""
         [ -x /sbin/grub ] && GRUB_BIN="/sbin/grub"
         [ -z "$GRUB_BIN" ] && [ -x /bin/grub ] && GRUB_BIN="/bin/grub"
         [ -z "$GRUB_BIN" ] && [ -x /src/boot/grub_legacy/grub ] && GRUB_BIN="/src/boot/grub_legacy/grub"
         
         if [ -n "$GRUB_BIN" ]; then
-            echo -e "setup (hd0) (hd0,0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map >/dev/null 2>&1 || \
-            echo -e "root (hd0,0)\nsetup (hd0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map >/dev/null 2>&1
+            echo "Запись MBR через $GRUB_BIN на $TARGET_DISK..."
+            printf "root (hd0,0)\nsetup (hd0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map
         fi
         
-        # Поддержка UEFI
+        # Преднастройка данных: категории ТВ-лаунчера и AmneziaVPN
+        if [ -f /src/ltv_zaika.sqlite ]; then
+            mkdir -p /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter
+            cp -f /src/ltv_zaika.sqlite /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite
+            chmod 666 /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite 2>/dev/null || true
+        fi
+        if [ -f /src/apps/AmneziaVPN.apk ]; then
+            mkdir -p /mnt_target/zaika_os/data/app/org.amnezia.vpn-1
+            cp -f /src/apps/AmneziaVPN.apk /mnt_target/zaika_os/data/app/org.amnezia.vpn-1/base.apk
+            chmod 644 /mnt_target/zaika_os/data/app/org.amnezia.vpn-1/base.apk 2>/dev/null || true
+        fi
+        for sp_d in /mnt_target/zaika_os/data/data/com.android.systemui/shared_prefs /mnt_target/zaika_os/data/user_de/0/com.android.systemui/shared_prefs; do
+            mkdir -p "$sp_d"
+            cat << 'PXML' > "$sp_d/prime_prefs.xml"
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<map>
+    <boolean name="dataReady" value="true" />
+    <boolean name="primeos_activated" value="true" />
+</map>
+PXML
+            chmod 666 "$sp_d/prime_prefs.xml" 2>/dev/null || true
+        done
+        
+        # РџРѕРґРґРµСЂР¶РєР° UEFI
         if [ -d /src/efi ]; then
             mkdir -p /mnt_target/EFI
             cp -rf /src/efi/* /mnt_target/EFI/ 2>/dev/null || true
@@ -113,8 +144,8 @@ GRUB_LST_EOF
         sync
         umount /mnt_target
         echo "================================================="
-        echo "  УСТАНОВКА ЗАВЕРШЕНА! ИЗВЛЕКИТЕ ФЛЕШКУ."
-        echo "  Выключение питания через 3 секунды..."
+        echo "  РЈРЎРўРђРќРћР’РљРђ Р—РђР’Р•Р РЁР•РќРђ! РР—Р’Р›Р•РљРРўР• Р¤Р›Р•РЁРљРЈ."
+        echo "  Р’С‹РєР»СЋС‡РµРЅРёРµ РїРёС‚Р°РЅРёСЏ С‡РµСЂРµР· 3 СЃРµРєСѓРЅРґС‹..."
         echo "================================================="
         sleep 3
         poweroff -f || reboot -p || reboot -f
@@ -125,13 +156,13 @@ fi
 # 1. Properties in default.prop
 # ------------------------------------------
 cat << 'PROP_EOF' >> default.prop
-ro.build.display.id=Зайка ОС 1.0 (Media Edition)
+ro.build.display.id=Р—Р°Р№РєР° РћРЎ 1.0 (Media Edition)
 ro.product.model=Zaika Box E-450
 ro.product.brand=ZaikaOS
 ro.product.name=zaika_box
 ro.product.device=zaika_box
-ro.prime.version=Зайка ОС 1.0
-ro.prime.name=Зайка ОС
+ro.prime.version=Р—Р°Р№РєР° РћРЎ 1.0
+ro.prime.name=Р—Р°Р№РєР° РћРЎ
 ro.zaika.version=1.0.0
 ro.setupwizard.mode=DISABLED
 setupwizard.theme=glif_light
@@ -150,16 +181,16 @@ PROP_EOF
 # ------------------------------------------
 if [ -f system/build.prop ]; then
     cp -f system/build.prop ./build.prop.zaika
-    sed -i 's/^ro.build.display.id=.*/ro.build.display.id=Зайка ОС 1.0 (Media Edition)/' ./build.prop.zaika
+    sed -i 's/^ro.build.display.id=.*/ro.build.display.id=Р—Р°Р№РєР° РћРЎ 1.0 (Media Edition)/' ./build.prop.zaika
     sed -i 's/^ro.product.model=.*/ro.product.model=Zaika Box E-450/' ./build.prop.zaika
-    sed -i 's/^ro.prime.version=.*/ro.prime.version=Зайка ОС 1.0/' ./build.prop.zaika
+    sed -i 's/^ro.prime.version=.*/ro.prime.version=Р—Р°Р№РєР° РћРЎ 1.0/' ./build.prop.zaika
     sed -i 's/^ro.product.locale=.*/ro.product.locale=ru-RU/' ./build.prop.zaika
     sed -i 's/^persist.sys.locale=.*/persist.sys.locale=ru-RU/' ./build.prop.zaika
     echo "persist.sys.locale=ru-RU" >> ./build.prop.zaika
     echo "persist.sys.language=ru" >> ./build.prop.zaika
     echo "persist.sys.country=RU" >> ./build.prop.zaika
     echo "ro.setupwizard.mode=DISABLED" >> ./build.prop.zaika
-    echo "ro.prime.name=Зайка ОС" >> ./build.prop.zaika
+    echo "ro.prime.name=Р—Р°Р№РєР° РћРЎ" >> ./build.prop.zaika
     mount --bind ./build.prop.zaika system/build.prop 2>/dev/null || true
 fi
 
