@@ -7,16 +7,16 @@
 # ------------------------------------------
 # 0. Автоматическая тихая установка на диск
 # ------------------------------------------
-if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && [ "$SRC" != "/zaika_os" ] && [ ! -f /mnt/zaika_os/system.sfs ]; then
+if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && [ "$SRC" != "/zaika_os" ] && [ "$SRC" != "zaika_os" ] && [ ! -f /mnt/zaika_os/system.sfs ]; then
     echo "================================================="
     echo "  ЗАЙКА ОС 1.0: АВТОМАТИЧЕСКАЯ УСТАНОВКА НА ДИСК"
     echo "================================================="
     
     TARGET_DISK=""
-    if [ -b /dev/block/sda ]; then
-        TARGET_DISK="/dev/block/sda"
-    elif [ -b /dev/sda ]; then
+    if [ -b /dev/sda ]; then
         TARGET_DISK="/dev/sda"
+    elif [ -b /dev/block/sda ]; then
+        TARGET_DISK="/dev/block/sda"
     fi
 
     if [ -n "$TARGET_DISK" ]; then
@@ -36,23 +36,24 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         echo -e "o\nn\np\n1\n\n\na\n1\nw\n" | fdisk $TARGET_DISK >/dev/null 2>&1
         sleep 2
         
-        # 3. Создание ноды sda1 и форматирование в ext4
+        # 3. Создание ноды sda1 и форматирование в ext3 с 128-байтными inode
         PART1="${TARGET_DISK}1"
         [ ! -b "$PART1" ] && mknod /dev/block/sda1 b 8 1 2>/dev/null || true
         [ ! -b "$PART1" ] && [ -b /dev/block/sda1 ] && PART1="/dev/block/sda1"
         
-        echo "Форматирование $PART1 (ext3/ext4 compatible)..."
-        mke2fs -F -t ext3 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
+        echo "Форматирование $PART1 (ext3, inode 128 для GRUB)..."
+        mke2fs -F -t ext3 -I 128 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -I 128 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
         
         # 4. Монтирование и копирование системных файлов
         mkdir -p /mnt_target
-        mount -t ext4 $PART1 /mnt_target
+        mount -t ext3 $PART1 /mnt_target 2>/dev/null || mount -t ext4 $PART1 /mnt_target 2>/dev/null || mount $PART1 /mnt_target
         
         echo "Копирование файлов Зайка ОС..."
         mkdir -p /mnt_target/zaika_os
         cp -f /src/system.sfs /mnt_target/zaika_os/
         cp -f /src/kernel /mnt_target/zaika_os/
         cp -f /src/initrd.img /mnt_target/zaika_os/
+        cp -f /src/ramdisk.img /mnt_target/zaika_os/ 2>/dev/null || true
         cp -rf /src/scripts /mnt_target/zaika_os/
         cp -rf /src/apps /mnt_target/zaika_os/
         cp -f /src/bootanimation.zip /mnt_target/zaika_os/ 2>/dev/null || true
@@ -85,6 +86,9 @@ title Zaika OS 1.0
 GRUB_LST_EOF
         cp -f /mnt_target/boot/grub/menu.lst /mnt_target/grub/menu.lst
 
+        # Удаление stage1 из каталога grub (оставляем stage2 и e2fs_stage1_5)
+        rm -f /mnt_target/boot/grub/stage1 /mnt_target/grub/stage1
+
         # Вызов утилиты grub для записи загрузчика в MBR
         echo "(hd0) $TARGET_DISK" > /tmp/device.map
         GRUB_BIN=""
@@ -93,6 +97,7 @@ GRUB_LST_EOF
         [ -z "$GRUB_BIN" ] && [ -x /src/boot/grub_legacy/grub ] && GRUB_BIN="/src/boot/grub_legacy/grub"
         
         if [ -n "$GRUB_BIN" ]; then
+            echo -e "setup (hd0) (hd0,0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map >/dev/null 2>&1 || \
             echo -e "root (hd0,0)\nsetup (hd0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map >/dev/null 2>&1
         fi
         
@@ -106,10 +111,10 @@ GRUB_LST_EOF
         umount /mnt_target
         echo "================================================="
         echo "  УСТАНОВКА ЗАВЕРШЕНА! ИЗВЛЕКИТЕ ФЛЕШКУ."
-        echo "  Перезагрузка через 3 секунды..."
+        echo "  Выключение питания через 3 секунды..."
         echo "================================================="
         sleep 3
-        reboot -f
+        poweroff -f || reboot -p || reboot -f
     fi
 fi
 
