@@ -112,17 +112,49 @@ GRUB_LST_EOF
             printf "root (hd0,0)\nsetup (hd0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map
         fi
         
-        # Преднастройка данных: категории ТВ-лаунчера и AmneziaVPN
+        # Pre-populate apps and data during installation
+        mkdir -p /mnt_target/zaika_os/data/app
+        
+        # Copy LtvLauncher
+        if [ -f /src/apps/LtvLauncher.apk ]; then
+            mkdir -p /mnt_target/zaika_os/data/app/com.leanbitlab.ltvL-1
+            cp -f /src/apps/LtvLauncher.apk /mnt_target/zaika_os/data/app/com.leanbitlab.ltvL-1/base.apk
+            chmod 644 /mnt_target/zaika_os/data/app/com.leanbitlab.ltvL-1/base.apk
+        fi
+        
+        # Copy SmartTube
+        if [ -f /src/apps/SmartTube.apk ]; then
+            mkdir -p /mnt_target/zaika_os/data/app/com.amazon.firetv.youtube-1
+            cp -f /src/apps/SmartTube.apk /mnt_target/zaika_os/data/app/com.amazon.firetv.youtube-1/base.apk
+            chmod 644 /mnt_target/zaika_os/data/app/com.amazon.firetv.youtube-1/base.apk
+        fi
+        
+        # Copy HDrezka
+        if [ -f /src/apps/HDrezka.apk ]; then
+            mkdir -p /mnt_target/zaika_os/data/app/com.falcofemoralis.hdrezkaapp-1
+            cp -f /src/apps/HDrezka.apk /mnt_target/zaika_os/data/app/com.falcofemoralis.hdrezkaapp-1/base.apk
+            chmod 644 /mnt_target/zaika_os/data/app/com.falcofemoralis.hdrezkaapp-1/base.apk
+        fi
+        
+        # Copy AmneziaVPN (x86)
+        if [ -f /src/apps/AmneziaVPN.apk ]; then
+            mkdir -p /mnt_target/zaika_os/data/app/org.amnezia.vpn-1
+            cp -f /src/apps/AmneziaVPN.apk /mnt_target/zaika_os/data/app/org.amnezia.vpn-1/base.apk
+            chmod 644 /mnt_target/zaika_os/data/app/org.amnezia.vpn-1/base.apk
+        fi
+        
+        chmod 755 /mnt_target/zaika_os/data/app /mnt_target/zaika_os/data/app/* 2>/dev/null || true
+        chown -R 1000:1000 /mnt_target/zaika_os/data/app 2>/dev/null || true
+
+        # Pre-populate LtvLauncher database with custom categories
         if [ -f /src/ltv_zaika.sqlite ]; then
             mkdir -p /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter
             cp -f /src/ltv_zaika.sqlite /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite
             chmod 666 /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite 2>/dev/null || true
+            chown -R 1000:1000 /mnt_target/zaika_os/data/data/com.leanbitlab.ltvL 2>/dev/null || true
         fi
-        if [ -f /src/apps/AmneziaVPN.apk ]; then
-            mkdir -p /mnt_target/zaika_os/data/app/org.amnezia.vpn-1
-            cp -f /src/apps/AmneziaVPN.apk /mnt_target/zaika_os/data/app/org.amnezia.vpn-1/base.apk
-            chmod 644 /mnt_target/zaika_os/data/app/org.amnezia.vpn-1/base.apk 2>/dev/null || true
-        fi
+        
+        # Pre-populate prime_prefs to prevent activation lock
         for sp_d in /mnt_target/zaika_os/data/data/com.android.systemui/shared_prefs /mnt_target/zaika_os/data/user_de/0/com.android.systemui/shared_prefs; do
             mkdir -p "$sp_d"
             cat << 'PXML' > "$sp_d/prime_prefs.xml"
@@ -133,6 +165,7 @@ GRUB_LST_EOF
 </map>
 PXML
             chmod 666 "$sp_d/prime_prefs.xml" 2>/dev/null || true
+            chown -R 1000:1000 "$sp_d" 2>/dev/null || true
         done
         
         # РџРѕРґРґРµСЂР¶РєР° UEFI
@@ -390,38 +423,11 @@ PREF_EOF
         chmod 666 "$sp_dir/prime_prefs.xml" 2>/dev/null || true
     done
 
-    # Pre-populate Settings database
-    mkdir -p data/system/users/0
-    cat << 'XML_EOF' > data/system/users/0/settings_secure.xml
-<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<settings version="134">
-  <setting id="1" name="primeos_activation_completed" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="2" name="primeos_activated" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="3" name="show_ime_with_hard_keyboard" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="4" name="user_setup_complete" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="5" name="tv_user_setup_complete" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="6" name="lockscreen.disabled" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-</settings>
-XML_EOF
-
-    cat << 'GLOBAL_XML_EOF' > data/system/users/0/settings_global.xml
-<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<settings version="134">
-  <setting id="1" name="device_provisioned" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="2" name="primeos_activation_completed" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-  <setting id="3" name="primeos_activated" value="1" package="android" defaultValue="1" defaultSysSet="true" />
-</settings>
-GLOBAL_XML_EOF
-
-    cat << 'SYS_XML_EOF' > data/system/users/0/settings_system.xml
-<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<settings version="134">
-  <setting id="1" name="system_locales" value="ru-RU" package="android" defaultValue="ru-RU" defaultSysSet="true" />
-</settings>
-SYS_XML_EOF
-
-    chown -R 1000:1000 data/system 2>/dev/null || true
-    chmod 600 data/system/users/0/settings_*.xml 2>/dev/null || true
-    chmod 700 data/system/users/0 2>/dev/null || true
-    chmod 775 data/system 2>/dev/null || true
+    # Copy pre-configured LtvLauncher database if present
+    if [ -f /src/ltv_zaika.sqlite ] && [ ! -f data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite ]; then
+        mkdir -p data/data/com.leanbitlab.ltvL/app_flutter
+        cp -f /src/ltv_zaika.sqlite data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite
+        chmod 666 data/data/com.leanbitlab.ltvL/app_flutter/db.sqlite 2>/dev/null || true
+        chown -R 1000:1000 data/data/com.leanbitlab.ltvL 2>/dev/null || true
+    fi
 }
