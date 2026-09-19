@@ -4,7 +4,7 @@
   "release_date": "2026-09-19",
   "name": "Зайка ОС 1.0.2 (Net-top Edition)",
   "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.2/ZaikaOS-1.0-x86_64.iso",
-  "sha256": "094A8B231027B4AB7C6F40B358A953188C9783DDECCC74BC84A28F438887D0C5",
+  "sha256": "F17636950212D202A34AA2F08FEA6ABDF859818554438B0C5FE4916572BBA4B7",
   "size_bytes": 1280024576,
   "changelog": [
     "Исправлено зависание на заставке загрузки с зайчиком (сохранён FallbackHome)",
