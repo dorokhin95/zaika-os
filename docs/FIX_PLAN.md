@@ -3,33 +3,28 @@
 
 ---
 
-## ПРИОРИТЕТ 1 (КРИТИЧНО): Исправить зависание на неттопе
+## ✅ РЕШЕНО: Зависание на неттопе — синий экран при загрузке
 
-### Проблема
-После установки на `/dev/sda` неттоп с AMD E-450 (Radeon HD 6320) зависает на синем экране.
+### Что было
+После установки AMD E-450 (Radeon HD 6320 / TeraScale 2) зависал на синем экране — KMS-инициализация вешала видеовыход.
 
-### Причина
-Параметр ядра `radeon.modeset=1` несовместим с этим GPU в режиме Android-x86.
-
-### Исправление в `01-zaika-os.sh` — строка menu.lst
+### Как решено
+1. **Переход на PrimeOS Classic (Android 7.1, ядро 4.14/4.19)** — старый Mesa стек нативно поддерживает HD 6000 без конфликтов.
+2. **Правильные параметры ядра в GRUB:**
 ```
-# БЫЛО:
-kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 quiet
-
-# СТАЛО (диагностический режим для проверки):
-kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os nomodeset
-
-# СТАЛО (после подтверждения что nomodeset работает — финальный вариант):
-kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os nomodeset quiet
+radeon.modeset=1 vga=current AUTO_LOAD=old_mod
 ```
+- `radeon.modeset=1` — нативный открытый Radeon-драйвер с HW-ускорением
+- `vga=current` — запрет сброса видеорежима BIOS/GRUB
+- `AUTO_LOAD=old_mod` — старые проверенные модули для GPU предыдущих поколений
 
-**Шаги:**
-1. В `01-zaika-os.sh` заменить `radeon.modeset=1 quiet` → `nomodeset` (без quiet для диагностики)
-2. Пересобрать ISO
-3. Прошить на флешку, установить на неттоп
-4. Если загрузилась — добавить `quiet` и сделать финальный ISO
+### Строка в `menu.lst` (актуальная)
+```
+kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 vga=current AUTO_LOAD=old_mod quiet
+```
 
 ---
+
 
 ## ПРИОРИТЕТ 2 (ВЫСОКИЙ): Правильные категории в LtvLauncher
 

@@ -84,7 +84,7 @@ timeout 1
 
 title Zaika OS 1.0
     root (hd0,0)
-    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 quiet
+    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 vga=current AUTO_LOAD=old_mod quiet
     initrd /zaika_os/initrd.img
 GRUB_LST_EOF
         cp -f /mnt_target/boot/grub/menu.lst /mnt_target/grub/menu.lst
