@@ -80,17 +80,17 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         
         # Создание menu.lst
         cat << 'GRUB_LST_EOF' > /mnt_target/boot/grub/menu.lst
-default 0
-timeout 3
+default=0
+timeout=3
 
 title Zaika OS 1.0
     root (hd0,0)
-    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 vga=current AUTO_LOAD=old_mod
+    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 AUTO_LOAD=old_mod
     initrd /zaika_os/initrd.img
 
 title Zaika OS 1.0 (Debug mode)
     root (hd0,0)
-    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 vga=current AUTO_LOAD=old_mod DEBUG=2
+    kernel /zaika_os/kernel root=/dev/ram0 androidboot.selinux=permissive SRC=zaika_os radeon.modeset=1 AUTO_LOAD=old_mod DEBUG=2
     initrd /zaika_os/initrd.img
 GRUB_LST_EOF
         cp -f /mnt_target/boot/grub/menu.lst /mnt_target/grub/menu.lst
