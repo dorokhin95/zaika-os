@@ -1,19 +1,17 @@
 {
-  "version": "1.0.0",
-  "version_code": 100,
+  "version": "1.0.1",
+  "version_code": 101,
   "release_date": "2026-09-19",
-  "name": "Зайка ОС 1.0 (Media & Game Edition)",
-  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.0/system.sfs",
-  "sha256": "0D44323B53E4C26C644EA0C8B4C745D9AFBE7494A50CB67E35A2EA71B1E4B4A0",
-  "size_bytes": 1090977792,
+  "name": "Зайка ОС 1.0.1 (Net-top Edition)",
+  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.1/ZaikaOS-1.0-x86_64.iso",
+  "sha256": "77904E59BA9E7DE2D86F41654B68E5E0C771AD54F1363116BA0D422D929ACFDF",
+  "size_bytes": 1280016384,
   "changelog": [
-    "Первый стабильный выпуск Зайка ОС для неттопа AMD E-450",
-    "Кастомная заставка меню GRUB с зайчонком и логотипом",
-    "Покадровая анимация загрузки (зайчонок грызет морковку)",
-    "Полная системная русификация (ru-RU) из коробки",
-    "Медиа-лаунчер LtvLauncher с крупными плитками под ТВ/мышь",
-    "SmartTube x86 (YouTube без рекламы с поддержкой 1080p)",
-    "Предустановленные HDrezka и AmneziaVPN",
-    "Встроенная система безопасных OTA-обновлений"
+    "Поддержка неттопа AMD E-450 / Radeon HD 6320 (TeraScale 2)",
+    "Исправлена запись GRUB MBR без удаления stage1",
+    "Устранена ошибка Error 23: Error while parsing number в TrustedGRUB",
+    "Предустановка всех 4 приложений (LtvLauncher, SmartTube, HDrezka, AmneziaVPN x86)",
+    "Преднастроенная база данных ТВ-лаунчера с 7 категориями",
+    "Английский текстовый интерфейс автоустановщика без артефактов кодировки"
   ]
 }
