@@ -5,14 +5,14 @@
 # ==========================================
 
 # РћС‡РёСЃС‚РєР° РїСЂРёРІРµС‚СЃС‚РІРёСЏ Рё РІС‹РІРѕРґ Р—Р°Р№РєР° РћРЎ РІ РєРѕРЅСЃРѕР»СЊ
-echo -e "\r\033[KР—Р°РїСѓСЃРє Р—Р°Р№РєР° РћРЎ 1.0..."
+echo -e "\r\033[KStarting Zaika OS 1.0..."
 
 # ------------------------------------------
 # 0. РђРІС‚РѕРјР°С‚РёС‡РµСЃРєР°СЏ С‚РёС…Р°СЏ СѓСЃС‚Р°РЅРѕРІРєР° РЅР° РґРёСЃРє
 # ------------------------------------------
 if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && [ "$SRC" != "/zaika_os" ] && [ "$SRC" != "zaika_os" ] && [ ! -f /mnt/zaika_os/system.sfs ]; then
     echo "================================================="
-    echo "  Р—РђР™РљРђ РћРЎ 1.0: РђР’РўРћРњРђРўРР§Р•РЎРљРђРЇ РЈРЎРўРђРќРћР’РљРђ РќРђ Р”РРЎРљ"
+    echo "  ZAIKA OS 1.0: AUTO-INSTALLING TO DISK"
     echo "================================================="
     
     TARGET_DISK=""
@@ -23,7 +23,7 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
     fi
 
     if [ -n "$TARGET_DISK" ]; then
-        echo "Р¦РµР»РµРІРѕР№ РґРёСЃРє РѕР±РЅР°СЂСѓР¶РµРЅ: $TARGET_DISK"
+        echo "Target disk detected: $TARGET_DISK"
         
         # Р Р°Р·РІРµСЂС‚С‹РІР°РЅРёРµ РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ СѓСЃС‚Р°РЅРѕРІС‰РёРєР° РµСЃР»Рё РґРѕСЃС‚СѓРїРЅС‹
         mkdir -p /lib
@@ -44,14 +44,14 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         [ ! -b "$PART1" ] && mknod /dev/block/sda1 b 8 1 2>/dev/null || true
         [ ! -b "$PART1" ] && [ -b /dev/block/sda1 ] && PART1="/dev/block/sda1"
         
-        echo "Р¤РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµ $PART1 (ext3, inode 128 РґР»СЏ GRUB)..."
+        echo "Formatting $PART1 (ext3, inode 128 for GRUB)..."
         mke2fs -F -t ext3 -I 128 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -I 128 -L "ZaikaOS" $PART1 >/dev/null 2>&1 || mke2fs -F -L "ZaikaOS" $PART1 >/dev/null 2>&1
         
         # 4. РњРѕРЅС‚РёСЂРѕРІР°РЅРёРµ Рё РєРѕРїРёСЂРѕРІР°РЅРёРµ СЃРёСЃС‚РµРјРЅС‹С… С„Р°Р№Р»РѕРІ
         mkdir -p /mnt_target
         mount -t ext3 $PART1 /mnt_target 2>/dev/null || mount -t ext4 $PART1 /mnt_target 2>/dev/null || mount $PART1 /mnt_target
         
-        echo "РљРѕРїРёСЂРѕРІР°РЅРёРµ С„Р°Р№Р»РѕРІ Р—Р°Р№РєР° РћРЎ..."
+        echo "Copying Zaika OS system files..."
         mkdir -p /mnt_target/zaika_os
         cp -f /src/system.sfs /mnt_target/zaika_os/
         cp -f /src/kernel /mnt_target/zaika_os/
@@ -62,8 +62,8 @@ if grep -qE "auto_install|INSTALL=/dev/sda|AUTO_INSTALL=force" /proc/cmdline && 
         cp -f /src/bootanimation.zip /mnt_target/zaika_os/ 2>/dev/null || true
         mkdir -p /mnt_target/zaika_os/data
         
-                # 5. Установка загрузчика GRUB в MBR
-        echo "Установка загрузчика GRUB в MBR..."
+        echo "Installing GRUB bootloader to MBR..."
+        echo "Installing GRUB bootloader to MBR..."
         mkdir -p /mnt_target/boot/grub /mnt_target/grub
         
         # Копирование всех стадий GRUB (stage1, stage2, e2fs_stage1_5)
@@ -108,7 +108,7 @@ GRUB_LST_EOF
         [ -z "$GRUB_BIN" ] && [ -x /src/boot/grub_legacy/grub ] && GRUB_BIN="/src/boot/grub_legacy/grub"
         
         if [ -n "$GRUB_BIN" ]; then
-            echo "Запись MBR через $GRUB_BIN на $TARGET_DISK..."
+            echo "Writing MBR via $GRUB_BIN to $TARGET_DISK..."
             printf "root (hd0,0)\nsetup (hd0)\nquit\n" | $GRUB_BIN --batch --device-map=/tmp/device.map
         fi
         
@@ -144,8 +144,8 @@ PXML
         sync
         umount /mnt_target
         echo "================================================="
-        echo "  РЈРЎРўРђРќРћР’РљРђ Р—РђР’Р•Р РЁР•РќРђ! РР—Р’Р›Р•РљРРўР• Р¤Р›Р•РЁРљРЈ."
-        echo "  Р’С‹РєР»СЋС‡РµРЅРёРµ РїРёС‚Р°РЅРёСЏ С‡РµСЂРµР· 3 СЃРµРєСѓРЅРґС‹..."
+        echo "  INSTALLATION COMPLETED! REMOVE USB DRIVE."
+        echo "  Powering off in 3 seconds..."
         echo "================================================="
         sleep 3
         poweroff -f || reboot -p || reboot -f
