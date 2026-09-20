@@ -1,13 +1,15 @@
 {
-  "version": "1.0.4",
-  "version_code": 104,
+  "version": "1.0.5",
+  "version_code": 105,
   "release_date": "2026-09-20",
-  "name": "Зайка ОС 1.0.4 (Desktop Apps Update)",
-  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.4/zaika-update-1.0.4-r1.tar.gz",
-  "sha256": "70dac10ead1b28baf91452969ce0b993773531031d079b99e34472451a83dd66",
+  "name": "Зайка ОС 1.0.5 (Desktop & Audio Fix)",
+  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.5/zaika-update-1.0.5.tar.gz",
+  "sha256": "A304F0EEFF0C8A112DEE2F99C930BB5113CEB7F2A3133116ED80A4FD473DE4BB",
   "changelog": [
-    "Добавлены ярлыки приложений SmartTube, HDrezka и AmneziaVPN на рабочий стол",
-    "Интегрирована система OTA-обновлений через публичный репозиторий GitHub",
-    "Автоматическая проверка и бесшовная установка пакетов обновлений"
+    "Обновлено приложение HDrezka до стабильной версии Mod (build 116)",
+    "Добавлен ярлык YouTube на рабочий стол Launcher3",
+    "Установлена фирменная заставка с Зайчиком в заснеженных горах",
+    "Включен звук HDMI для видеокарт Radeon по умолчанию (radeon.audio=1)",
+    "Выпущен полный гибридный установочный ISO образ 1.0.5"
   ]
 }
