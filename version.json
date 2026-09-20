@@ -4,7 +4,7 @@
   "release_date": "2026-09-20",
   "name": "Зайка ОС 1.0.5 (Desktop & Audio Fix)",
   "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.5/zaika-update-1.0.5.tar.gz",
-  "sha256": "a304f0eeff0c8a112dee2f99c930bb5113ceb7f2a3133116ed80a4fd473de4bb",
+  "sha256": "2093ebcd4e93dd5474b6725311732cd65d779e122a65fef05a9ec6914f6a03e6",
   "changelog": [
     "Обновлено приложение HDrezka до стабильной версии Mod (build 116)",
     "Добавлен ярлык YouTube на рабочий стол Launcher3",
