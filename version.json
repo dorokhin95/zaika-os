@@ -3,7 +3,7 @@
   "version_code": 104,
   "release_date": "2026-09-20",
   "name": "Зайка ОС 1.0.4 (Desktop Apps Update)",
-  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.4/zaika-update-1.0.4.tar.gz",
+  "download_url": "https://github.com/dorokhin95/zaika-os/releases/download/v1.0.4/zaika-update-1.0.4-r1.tar.gz",
   "sha256": "70dac10ead1b28baf91452969ce0b993773531031d079b99e34472451a83dd66",
   "changelog": [
     "Добавлены ярлыки приложений SmartTube, HDrezka и AmneziaVPN на рабочий стол",
